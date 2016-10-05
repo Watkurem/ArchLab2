@@ -1,13 +1,13 @@
 package main
 
 import (
-	"testing"
 	"bytes"
+	"testing"
 )
 
 const (
 	EMPTY_LINE = "\n"
-	VOID = ""
+	VOID       = ""
 )
 
 func test_ok(str, msk, expect string, t *testing.T) {
@@ -19,8 +19,8 @@ func test_ok(str, msk, expect string, t *testing.T) {
 	print_matches(str, msk)
 	got := out.(*bytes.Buffer).String()
 	if got != expect {
-		t.Errorf("String was \"%s\", mask was \"%s\"." +
-			"Expected \"%s\"." +
+		t.Errorf("String was \"%s\", mask was \"%s\"."+
+			"Expected \"%s\"."+
 			"Got \"%s\"",
 			str, msk, expect, got)
 	}

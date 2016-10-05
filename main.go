@@ -2,11 +2,11 @@ package main
 
 import (
 	"bufio"
-	"io"
 	"fmt"
+	"io"
 	"os"
-	"strings"
 	"sort"
+	"strings"
 )
 
 var out io.Writer = os.Stdout
@@ -126,7 +126,7 @@ func main() {
 	var msk string
 	var str string
 
-	if(len(os.Args) > 1) {
+	if len(os.Args) > 1 {
 		msk = os.Args[1]
 	} else {
 		fmt.Fprintln(out, "Error: No mask provided")
