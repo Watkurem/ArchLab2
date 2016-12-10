@@ -1,32 +1,48 @@
 package main
 
 import (
-	"bufio"
+	// "bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"os"
 	"sort"
+	"sync"
 	"strings"
+	"./profile"
 )
 
 var out io.Writer = os.Stdout
 
 func filter_results_with_anchors(_results map[string]bool, anchors []string) []string {
+	var m sync.Mutex
+	var wg sync.WaitGroup
+
 	var results []string
 
-lp:
 	for res, _ := range _results {
-		tmpres := res
-		for _, anchor := range anchors {
-			if !strings.Contains(tmpres, anchor) {
-				continue lp
-			} else {
-				tmpres = tmpres[strings.Index(tmpres, anchor)+len(anchor):]
+		wg.Add(1)
+
+		go func(tmpres string, results *[]string){
+			defer wg.Done()
+			res := tmpres
+
+			for _, anchor := range anchors {
+				if !strings.Contains(tmpres, anchor) {
+					return
+				} else {
+					tmpres = tmpres[strings.Index(tmpres, anchor)+len(anchor):]
+				}
 			}
-		}
-		results = append(results, res)
+			tmp_results := append(*results, res)
+			m.Lock()
+			*results = tmp_results
+			m.Unlock()
+		}(res, &results)
 	}
 
+	wg.Wait()
 	sort.Strings(results)
 	return results
 }
@@ -83,25 +99,46 @@ func prepare_string_mask_anchors(str string, msk string) (string, string, []stri
 
 func extract_rough_matches(str string, msk string, left_a string, right_a string) map[string]bool {
 	results := make(map[string]bool)
+	var m sync.Mutex
+	var wg sync.WaitGroup
 
 	for strings.Contains(str, left_a) {
-		left_a_pos := strings.Index(str, left_a)
-		substr := str[left_a_pos+len(left_a):]
+		wg.Add(1)
 
-		for strings.Contains(substr, right_a) {
-			right_a_pos := strings.LastIndex(substr, right_a)
-			results[left_a+substr[:right_a_pos+len(right_a)]] = true
+		go func(str string){
+			defer wg.Done()
+			left_a_pos := strings.Index(str, left_a)
+			substr := str[left_a_pos+len(left_a):]
 
-			if !trim_str_right(&substr, right_a) {
-				break
+			var wg sync.WaitGroup
+
+			for strings.Contains(substr, right_a) {
+				wg.Add(1)
+
+				go func(substr string){
+					defer wg.Done()
+					right_a_pos := strings.LastIndex(substr, right_a)
+
+					tmp_key := left_a+substr[:right_a_pos+len(right_a)]
+					m.Lock()
+					results[tmp_key] = true
+					m.Unlock()
+				}(substr)
+
+				if !trim_str_right(&substr, right_a) {
+					break
+				}
 			}
-		}
+
+			wg.Wait()
+		}(str)
 
 		if !trim_str_left(&str, left_a) {
 			break
 		}
 	}
 
+	wg.Wait()
 	return results
 }
 
@@ -122,9 +159,11 @@ func print_matches(str string, msk string) bool {
 }
 
 func main() {
-	reader := bufio.NewReader(os.Stdin)
+	defer profile.Start(profile.CPUProfile).Stop()
+
+	// reader := bufio.NewReader(os.Stdin)
 	var msk string
-	var str string
+	// var str string
 
 	if len(os.Args) > 1 {
 		msk = os.Args[1]
@@ -133,15 +172,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	for true {
-		_str, err := reader.ReadString('\n')
-		str += _str
-		if err == io.EOF {
-			break
-		}
+	data, err := ioutil.ReadFile("big.txt")
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	print_matches(str, msk)
+	str := string(data)
 
-	os.Exit(0)
+	print_matches(str, msk)
 }
